@@ -10,7 +10,7 @@ import {
   type ListingPrivateValues,
 } from "@/lib/admin/listingSchema";
 import { LISTING_CONDITIONS } from "@/lib/supabase/models";
-import { inputClass } from "./styles";
+import { btnDark, cardClass, inputClass, labelClass } from "./styles";
 
 type FormValues = ListingFormValues & { private: ListingPrivateValues };
 
@@ -102,9 +102,10 @@ export function ListingForm({
       noValidate
       className="space-y-6"
     >
-      <fieldset disabled={!editable} className="space-y-4">
-        <legend className="font-display text-lg font-bold text-steel-900">Details</legend>
-
+      <fieldset disabled={!editable} className={cardClass}>
+        <legend className="float-left mb-5 w-full font-display text-lg font-bold text-steel-900">Details</legend>
+        <div className="clear-both space-y-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <Field label="Category *" error={errors.category_id}>
           <select className={inputClass} {...register("category_id")}>
             {categories.map((c) => (
@@ -118,8 +119,9 @@ export function ListingForm({
         <Field label="Title (English) *" error={errors.title_en} hint='e.g. "Liebherr LTM 1100 Mobile Crane"'>
           <input className={inputClass} {...register("title_en")} />
         </Field>
+        </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-4">
           <Field label="Make" error={errors.make}>
             <input className={inputClass} {...register("make")} />
           </Field>
@@ -157,23 +159,29 @@ export function ListingForm({
             <NumberInput reg={register("quantity")} />
           </Field>
         </div>
+        </div>
       </fieldset>
 
-      <fieldset disabled={!editable} className="space-y-3">
-        <legend className="font-display text-lg font-bold text-steel-900">Price</legend>
-        <Field label="Price (SAR)" error={errors.price_sar}>
-          <NumberInput reg={register("price_sar")} disabled={priceOnRequest} />
-        </Field>
-        <Checkbox reg={register("price_on_request")} label="Price on request (hide the price)" />
-        <Checkbox reg={register("negotiable")} label="Negotiable" />
+      <fieldset disabled={!editable} className={cardClass}>
+        <legend className="float-left mb-5 w-full font-display text-lg font-bold text-steel-900">Price</legend>
+        <div className="clear-both grid grid-cols-1 gap-x-6 gap-y-2 md:grid-cols-2 md:items-start">
+          <Field label="Price (SAR)" error={errors.price_sar}>
+            <NumberInput reg={register("price_sar")} disabled={priceOnRequest} />
+          </Field>
+          <div className="md:pt-6">
+            <Checkbox reg={register("price_on_request")} label="Price on request (hide the price)" />
+            <Checkbox reg={register("negotiable")} label="Negotiable" />
+          </div>
+        </div>
       </fieldset>
 
-      <fieldset disabled={!editable} className="space-y-4">
-        <legend className="font-display text-lg font-bold text-steel-900">Description</legend>
+      <fieldset disabled={!editable} className={cardClass}>
+        <legend className="float-left mb-5 w-full font-display text-lg font-bold text-steel-900">Description</legend>
+        <div className="clear-both space-y-4">
         <Field label="Description (English)" error={errors.description_en}>
           <textarea rows={5} className={inputClass} {...register("description_en")} />
         </Field>
-        <details className="rounded-xl border border-steel-100 p-3">
+        <details className="rounded-lg border border-steel-200 p-4">
           <summary className="cursor-pointer text-sm font-semibold text-steel-700">Arabic (optional)</summary>
           <div className="mt-3 space-y-4">
             <Field label="Title (Arabic)" error={errors.title_ar}>
@@ -184,12 +192,16 @@ export function ListingForm({
             </Field>
           </div>
         </details>
+        </div>
       </fieldset>
 
       {isOwner ? (
-        <fieldset disabled={!editable} className="space-y-4 rounded-2xl border-2 border-dashed border-warning/50 bg-amber-50/40 p-4">
-          <legend className="px-1 font-display text-lg font-bold text-steel-900">Private (owner only)</legend>
-          <p className="text-xs text-steel-500">Never shown on the website.</p>
+        <fieldset disabled={!editable} className={`${cardClass} border-s-4 border-amber-400`}>
+          <legend className="float-left mb-5 w-full font-display text-lg font-bold text-steel-900">
+            Private <span className="ms-1 rounded-full bg-amber-100 px-2 py-0.5 align-middle text-xs font-semibold text-amber-800">Owner only</span>
+            <span className="mt-1 block text-xs font-normal text-steel-500">Never shown on the website.</span>
+          </legend>
+          <div className="clear-both space-y-4">
           <Field label="Seller / source" error={errors.seller_source}>
             <input className={inputClass} {...register("private.seller_source")} />
           </Field>
@@ -199,22 +211,23 @@ export function ListingForm({
           <Field label="Internal notes" error={errors.internal_notes}>
             <textarea rows={3} className={inputClass} {...register("private.internal_notes")} />
           </Field>
+          </div>
         </fieldset>
       ) : null}
 
       {editable ? (
-        <div className="sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-10 flex items-center justify-between gap-3 rounded-2xl border border-steel-100 bg-white/95 p-3 shadow-lg backdrop-blur md:bottom-4">
+        <div className="sticky bottom-[calc(1rem+env(safe-area-inset-bottom))] z-10 flex items-center justify-between gap-3 rounded-xl bg-white/95 p-3 ps-5 shadow-[0_10px_40px_rgba(13,30,40,0.16)] ring-1 ring-steel-100 backdrop-blur">
           <SaveStatus state={state} />
           <button
             type="submit"
-            className="h-11 shrink-0 rounded-full bg-steel-900 px-5 text-sm font-bold text-white hover:bg-steel-800 disabled:opacity-50"
+            className={`${btnDark} shrink-0`}
             disabled={state.kind === "saving"}
           >
             Save now
           </button>
         </div>
       ) : (
-        <p className="rounded-xl bg-steel-50 px-3 py-2 text-sm text-steel-600">
+        <p className="rounded-xl bg-white px-5 py-4 text-sm text-steel-600 shadow-[0_4px_20px_rgba(13,30,40,0.06)]">
           This listing is read-only for you. Ask the owner to make changes.
         </p>
       )}
@@ -243,7 +256,7 @@ function SaveStatus({ state }: { state: { kind: string; text?: string } }) {
 
 function Field({ label, error, hint, children }: { label: string; error?: string; hint?: string; children: React.ReactNode }) {
   return (
-    <label className="block text-sm font-semibold text-steel-700">
+    <label className={labelClass}>
       {label}
       {children}
       {error ? (

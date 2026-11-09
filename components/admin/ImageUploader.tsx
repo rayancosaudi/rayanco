@@ -5,6 +5,7 @@ import { useRef, useState, useTransition } from "react";
 import { deleteListingImage, reorderListingImages } from "@/app/actions/admin-listings";
 import { ACCEPT_ATTR, formatBytes, ImageInputError, processImage, validateImageFile } from "@/lib/images/processImage";
 import { mediaUrl } from "@/lib/listings/media";
+import { IconCamera } from "./icons";
 
 export type UploadedImage = {
   id: string;
@@ -183,8 +184,11 @@ export function ImageUploader({
       </div>
 
       {editable ? (
-        <label className="flex min-h-28 cursor-pointer flex-col items-center justify-center gap-1 rounded-2xl border-2 border-dashed border-steel-200 bg-steel-50 p-4 text-center hover:border-accent-500">
-          <span className="text-base font-bold text-steel-900">📷 Take or add photos</span>
+        <label className="flex min-h-36 cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-steel-200 bg-steel-50/60 p-5 text-center transition-colors hover:border-accent-500 hover:bg-accent-50/40">
+          <span className="grid size-12 place-items-center rounded-full bg-accent-500/10 text-accent-600">
+            <IconCamera className="size-6" />
+          </span>
+          <span className="text-base font-bold text-steel-900">Take or add photos</span>
           <span className="text-xs text-steel-500">JPG, PNG, WebP or iPhone HEIC · up to 25 MB each · auto-compressed</span>
           <input
             ref={inputRef}
@@ -215,7 +219,7 @@ export function ImageUploader({
       ) : null}
 
       {message ? (
-        <p role="alert" className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-800">
+        <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">
           {message}
         </p>
       ) : null}
@@ -223,7 +227,7 @@ export function ImageUploader({
       {pending.length ? (
         <ul className="space-y-2" aria-live="polite">
           {pending.map((p) => (
-            <li key={p.tempId} className="flex items-center justify-between gap-3 rounded-xl bg-steel-50 px-3 py-2 text-sm">
+            <li key={p.tempId} className="flex items-center justify-between gap-3 rounded-lg bg-steel-50 px-3 py-2.5 text-sm">
               <span className="min-w-0 truncate text-steel-700">{p.name}</span>
               <span className={`shrink-0 text-xs font-semibold ${p.stage === "error" ? "text-red-700" : "text-steel-600"}`}>
                 {p.stage === "error" ? p.error : STAGE_LABEL[p.stage]}
@@ -244,9 +248,9 @@ export function ImageUploader({
       ) : null}
 
       {images.length ? (
-        <ol className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <ol className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
           {images.map((img, index) => (
-            <li key={img.id} className="overflow-hidden rounded-2xl border border-steel-100 bg-white">
+            <li key={img.id} className="overflow-hidden rounded-xl border border-steel-100 bg-white">
               <div className="relative aspect-[4/3] bg-steel-100">
                 <Image
                   src={mediaUrl(img.thumb_key ?? img.r2_key)}
@@ -257,7 +261,7 @@ export function ImageUploader({
                   unoptimized
                 />
                 {index === 0 ? (
-                  <span className="absolute start-2 top-2 rounded-full bg-accent-500 px-2 py-0.5 text-[0.65rem] font-bold text-white">
+                  <span className="absolute start-2 top-2 rounded-md bg-accent-500 px-2 py-0.5 text-[0.65rem] font-bold uppercase tracking-wide text-white shadow">
                     Cover
                   </span>
                 ) : null}
@@ -317,7 +321,7 @@ function IconButton({
       title={label}
       disabled={disabled}
       onClick={onClick}
-      className={`grid size-9 place-items-center rounded-full text-sm font-bold disabled:opacity-30 ${
+      className={`grid size-9 place-items-center rounded-lg text-sm font-bold disabled:opacity-30 ${
         danger ? "text-red-700 hover:bg-red-50" : "text-steel-700 hover:bg-steel-100"
       }`}
     >

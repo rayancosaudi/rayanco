@@ -9,6 +9,7 @@ import {
   type ActionResult,
 } from "@/app/actions/admin-listings";
 import type { ListingStatus } from "@/lib/supabase/models";
+import { btnDanger, btnOutline, btnPrimary } from "./styles";
 
 type Action = { label: string; run: () => Promise<ActionResult>; tone: "primary" | "neutral" | "danger" };
 
@@ -66,22 +67,18 @@ export function StatusActions({
 
   if (!actions.length && !isOwner) return null;
 
-  const tones = {
-    primary: "bg-accent-500 text-white hover:bg-accent-600",
-    neutral: "border-[1.5px] border-steel-200 bg-white text-steel-900 hover:bg-steel-50",
-    danger: "border-[1.5px] border-red-200 bg-white text-red-700 hover:bg-red-50",
-  };
+  const tones = { primary: btnPrimary, neutral: btnOutline, danger: btnDanger };
 
   return (
     <div className="space-y-2">
-      <div className="flex flex-wrap gap-2">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-1">
         {actions.map((a) => (
           <button
             key={a.label}
             type="button"
             disabled={isPending}
             onClick={() => run(a)}
-            className={`h-11 rounded-full px-5 text-sm font-bold transition-colors disabled:opacity-50 ${tones[a.tone]}`}
+            className={`${tones[a.tone]} w-full`}
           >
             {a.label}
           </button>
@@ -98,8 +95,8 @@ export function StatusActions({
               run({ label: "Delete", run: () => deleteListing(listingId), tone: "danger" });
             }}
             onBlur={() => setConfirmDelete(false)}
-            className={`h-11 rounded-full px-5 text-sm font-bold disabled:opacity-50 ${
-              confirmDelete ? "bg-red-700 text-white" : "text-red-700 underline"
+            className={`h-11 w-full rounded-lg px-5 text-sm font-bold disabled:opacity-50 ${
+              confirmDelete ? "bg-red-700 text-white" : "text-red-700 hover:bg-red-50"
             }`}
           >
             {confirmDelete ? "Tap again to delete for good" : "Delete"}

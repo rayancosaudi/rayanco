@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AdminStatusBadge } from "@/components/admin/AdminStatusBadge";
+import { IconExternal } from "@/components/admin/icons";
 import { ImageUploader } from "@/components/admin/ImageUploader";
 import { ListingForm } from "@/components/admin/ListingForm";
+import { PageHeader } from "@/components/admin/PageHeader";
 import { StatusActions } from "@/components/admin/StatusActions";
+import { btnOutline, cardClass, cardTitleClass } from "@/components/admin/styles";
 import { UUID_RE, isPublicStatus } from "@/lib/admin/access";
 import { STAFF_EDITABLE, type ListingFormValues, type ListingPrivateValues } from "@/lib/admin/listingSchema";
 import { requireUser } from "@/lib/auth";
@@ -71,48 +73,76 @@ export default async function EditListingPage({ params }: { params: Promise<{ id
 
   const publicUrl = listing.categories && isPublicStatus(listing.status) ? listingPath(listing.categories.slug, listing.slug) : null;
 
+  const fmt = (iso: string | null) =>
+    iso ? new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Riyadh" }) : "—";
+
   return (
-    <div className="space-y-6">
-      <div className="space-y-2">
-        <Link href="/admin/listings" className="text-sm font-semibold text-steel-500">
-          ← Listings
-        </Link>
-        <div className="flex flex-wrap items-center gap-2">
-          <h1 className="font-display text-2xl font-bold">{listing.title_en}</h1>
-          <AdminStatusBadge status={listing.status} />
+    <div>
+      <PageHeader
+        crumbs={[{ href: "/admin/listings", label: "Listings" }]}
+        title={
+          <span className="flex flex-wrap items-center gap-3">
+            <span className="min-w-0 break-words">{listing.title_en}</span>
+            <AdminStatusBadge status={listing.status} />
+          </span>
+        }
+        subtitle={`Ref ${listing.ref_code}`}
+        actions={
+          publicUrl ? (
+            <a href={publicUrl} target="_blank" rel="noopener noreferrer" className={btnOutline}>
+              <IconExternal className="size-4" /> View on site
+            </a>
+          ) : null
+        }
+      />
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <aside className="lg:order-2">
+          <div className={`${cardClass} space-y-5 lg:sticky lg:top-24`}>
+            <div className="flex items-center justify-between gap-3">
+              <h2 className={cardTitleClass}>Status &amp; actions</h2>
+              <AdminStatusBadge status={listing.status} />
+            </div>
+            {listing.status === "pending" && !isOwner ? (
+              <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                Waiting for the owner to approve. You can still make changes.
+              </p>
+            ) : null}
+            <StatusActions listingId={listing.id} status={listing.status} isOwner={isOwner} isCreator={isCreator} />
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-3 border-t border-steel-100 pt-4 text-sm">
+              <div>
+                <dt className="text-xs text-steel-500">Reference</dt>
+                <dd className="font-semibold text-steel-900">{listing.ref_code}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-steel-500">Views</dt>
+                <dd className="font-semibold text-steel-900">{listing.view_count}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-steel-500">Published</dt>
+                <dd className="font-semibold text-steel-900">{fmt(listing.published_at)}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-steel-500">Sold</dt>
+                <dd className="font-semibold text-steel-900">{fmt(listing.sold_at)}</dd>
+              </div>
+            </dl>
+          </div>
+        </aside>
+
+        <div className="space-y-6 lg:order-1 lg:col-span-2">
+          <div className={cardClass}>
+            <ImageUploader listingId={listing.id} initialImages={images ?? []} editable={editable} />
+          </div>
+          <ListingForm
+            listingId={listing.id}
+            categories={categories ?? []}
+            initialValues={values}
+            initialPrivate={priv}
+            editable={editable}
+            isOwner={isOwner}
+          />
         </div>
-        <p className="text-sm text-steel-500">
-          Ref {listing.ref_code} · {listing.view_count} views
-          {publicUrl ? (
-            <>
-              {" · "}
-              <a href={publicUrl} target="_blank" rel="noopener noreferrer" className="font-semibold text-accent-600 underline">
-                View on site ↗
-              </a>
-            </>
-          ) : null}
-        </p>
-        {listing.status === "pending" && !isOwner ? (
-          <p className="rounded-xl bg-amber-100 px-3 py-2 text-sm text-amber-900">
-            Waiting for the owner to approve. You can still make changes.
-          </p>
-        ) : null}
-        <StatusActions listingId={listing.id} status={listing.status} isOwner={isOwner} isCreator={isCreator} />
-      </div>
-
-      <div className="rounded-2xl border border-steel-100 bg-white p-4">
-        <ImageUploader listingId={listing.id} initialImages={images ?? []} editable={editable} />
-      </div>
-
-      <div className="rounded-2xl border border-steel-100 bg-white p-4">
-        <ListingForm
-          listingId={listing.id}
-          categories={categories ?? []}
-          initialValues={values}
-          initialPrivate={priv}
-          editable={editable}
-          isOwner={isOwner}
-        />
       </div>
     </div>
   );
