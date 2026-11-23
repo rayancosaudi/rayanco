@@ -1,3 +1,4 @@
+import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { publicEnv } from "@/lib/env";
 import { localePath, splitLocale } from "@/lib/i18n";
@@ -42,8 +43,46 @@ async function lookup(path: string): Promise<string | null> {
   }
 }
 
+/**
+ * /admin: refresh the Supabase session cookie and send signed-out visitors to the login page.
+ * Pages still call requireUser(), and RLS is the real gate; this just avoids rendering for nobody.
+ */
+async function adminGate(request: NextRequest): Promise<NextResponse> {
+  let response = NextResponse.next({ request });
+  const supabase = createServerClient(publicEnv.NEXT_PUBLIC_SUPABASE_URL, publicEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
+    cookies: {
+      getAll: () => request.cookies.getAll(),
+      setAll(cookiesToSet) {
+        cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+        response = NextResponse.next({ request });
+        cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
+      },
+    },
+  });
+  const { data } = await supabase.auth.getClaims();
+  const signedIn = !!data?.claims;
+  const path = request.nextUrl.pathname.replace(/\/+$/, "");
+  const isLogin = path === "/admin/login";
+
+  const redirectTo = (pathname: string, next?: string) => {
+    const url = request.nextUrl.clone();
+    url.pathname = pathname;
+    url.search = next ? `?next=${encodeURIComponent(next)}` : "";
+    const res = NextResponse.redirect(url);
+    response.cookies.getAll().forEach((c) => res.cookies.set(c));
+    return res;
+  };
+
+  if (!signedIn && !isLogin) return redirectTo("/admin/login", path);
+  if (signedIn && isLogin) return redirectTo("/admin");
+  response.headers.set("Cache-Control", "private, no-store");
+  return response;
+}
+
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  if (pathname === "/admin" || pathname.startsWith("/admin/")) return adminGate(request);
+
   const trimmed = pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
   const { locale, path } = splitLocale(trimmed);
   const to = await lookup(path);
@@ -56,5 +95,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/used-equipment/:path+", "/ar/used-equipment/:path+"],
+  matcher: ["/used-equipment/:path+", "/ar/used-equipment/:path+", "/admin", "/admin/:path*"],
 };

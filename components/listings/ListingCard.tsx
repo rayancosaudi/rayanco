@@ -31,7 +31,7 @@ export function ListingCard({
       <div className="relative aspect-[4/3] bg-steel-100">
         {cover ? (
           <Image
-            src={mediaUrl(cover.thumb_key ?? cover.r2_key)}
+            src={mediaUrl(cover.thumb_key ?? cover.storage_key)}
             alt={cover.alt_text || listingAlt(listing)}
             fill
             preload={priority}

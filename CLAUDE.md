@@ -16,7 +16,7 @@ The current site is static HTML (7 pages) and is indexed by Google. **Preserving
 
 - **Next.js** (latest stable, App Router, TypeScript, Tailwind CSS)
 - **Supabase**: Postgres, Auth, Row Level Security
-- **Cloudflare R2**: all images (S3-compatible API, presigned uploads)
+- **Supabase Storage**: all images (public bucket `listing-media`, signed upload URLs; Pro plan includes 100 GB)
 - Hosting: Vercel (assume this unless told otherwise)
 - Validation: zod. Forms: react-hook-form. Images: `browser-image-compression` + `heic2any` (browser), `sharp` (server fallback). All stored images are WebP (section 8a).
 
@@ -43,7 +43,7 @@ The current site is static HTML (7 pages) and is indexed by Google. **Preserving
 | `/equipment_resale.html` | `/used-equipment` |
 | `/contact.html` | `/contact` |
 
-Old image paths `/assets/images/**` must keep working. Copy the files to `/public/assets/images/` with the same paths, or rewrite those paths to R2.
+Old image paths `/assets/images/**` must keep working. Copy the files to `/public/assets/images/` with the same paths, or rewrite those paths to Supabase Storage.
 
 New routes:
 
@@ -110,7 +110,7 @@ create table listings (
 create table listing_images (
   id uuid primary key default gen_random_uuid(),
   listing_id uuid references listings on delete cascade,
-  r2_key text not null, width int, height int,
+  storage_key text not null, width int, height int,
   alt_text text, sort_order int default 0
 );
 
@@ -174,23 +174,23 @@ Products page (33 items) and non-ferrous page (11 items): reproduce the same ite
 
 **Admin (mobile-first; staff use it on site from their phone)**
 - Supabase Auth login (email + password or magic link).
-- "New listing" form: take photos with the camera (`<input type="file" accept="image/*" capture="environment" multiple>`), auto-compress and convert to WebP (see section 8a), and upload directly to R2 via presigned PUT URLs from a route handler. Photos can be reordered, and one is chosen as the cover.
+- "New listing" form: take photos with the camera (`<input type="file" accept="image/*" capture="environment" multiple>`), auto-compress and convert to WebP (see section 8a), and upload directly to Supabase Storage via signed upload tokens from a route handler. Photos can be reordered, and one is chosen as the cover.
 - Auto-save drafts. Staff submit → `pending`. The owner approves → `available`, which sets `published_at`.
 - One-tap status changes: Reserved, Sold (sets `sold_at`), Archive.
 - Dashboard: counts by status, recent enquiries, view counts.
 - After any listing change, call `revalidatePath()` for the listing, its category, `/used-equipment` and the sitemap.
 
-## 8. Images (Cloudflare R2)
+## 8. Images (Supabase Storage)
 
-- Bucket served via a custom domain, e.g. `media.rayanco.com`. Configure the `next/image` loader / `remotePatterns` for it.
+- Public bucket `listing-media` (1 MB, `image/webp` only) plus private `listing-incoming` for the fallback path; served from `<project>.supabase.co/storage/v1/object/public/...`. `next/image` `remotePatterns` is derived from `NEXT_PUBLIC_SUPABASE_URL`.
 - Key format: `listings/{listing_id}/{uuid}.webp`.
-- Route handler `POST /api/upload-url`: authenticated, validates content type and size, returns a presigned PUT URL (`@aws-sdk/client-s3` + `@aws-sdk/s3-request-presigner`).
-- Env vars: `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `NEXT_PUBLIC_MEDIA_URL`.
+- Route handler `POST /api/upload-url`: authenticated, validates the request, returns signed upload tokens (`createSignedUploadUrl`); the browser uploads with `uploadToSignedUrl`. The bucket enforces type and size.
+- Env vars: none beyond the Supabase keys; `CRON_SECRET` secures the cleanup cron.
 - Auto-generate alt text from the listing: `{year} {make} {model} {title} — {location}`.
 
 ### 8a. Automatic image compression + WebP conversion (required)
 
-Every image uploaded anywhere in the admin (listings, categories, page content) is **automatically compressed and converted to WebP before it is stored**. Staff never resize anything by hand, and an original JPG/PNG/HEIC is never stored in R2.
+Every image uploaded anywhere in the admin (listings, categories, page content) is **automatically compressed and converted to WebP before it is stored**. Staff never resize anything by hand, and an original JPG/PNG/HEIC is never stored in Supabase Storage.
 
 Create one reusable utility, `lib/images/processImage.ts`, and one hook/component, `<ImageUploader>`, and use them for all uploads.
 
@@ -206,17 +206,17 @@ Create one reusable utility, `lib/images/processImage.ts`, and one hook/componen
 - Fallback: if the browser can't encode WebP (very old Safari), `canvas.toBlob(..., 'image/webp')` returns PNG. Detect this and send the JPEG version flagged `needs_server_conversion: true` instead (see step 3).
 
 **Step 2 — upload**
-- `POST /api/upload-url` returns two presigned PUT URLs, one per version:
+- `POST /api/upload-url` returns two signed upload tokens, one per version:
   - `listings/{listing_id}/{uuid}.webp`
   - `listings/{listing_id}/{uuid}_thumb.webp`
-- The server only signs uploads with `Content-Type: image/webp` and a content-length cap of 1 MB. Anything else is refused.
-- Upload directly from the browser to R2. Images never pass through Vercel functions, which avoids the 4.5 MB body limit.
-- After both PUTs succeed, insert the `listing_images` row: `r2_key`, `thumb_key`, width, height, `bytes`, `sort_order`.
+- The `listing-media` bucket only accepts `image/webp` up to 1 MB. Anything else is refused.
+- Upload directly from the browser to Supabase Storage. Images never pass through Vercel functions, which avoids the 4.5 MB body limit.
+- After both PUTs succeed, insert the `listing_images` row: `storage_key`, `thumb_key`, width, height, `bytes`, `sort_order`.
 
 **Step 3 — server safety net (route handler with `sharp`, Node runtime)**
-- `POST /api/images/verify`: fetches the uploaded object from R2 and checks with `sharp` that it really is WebP within size limits.
-- If it isn't WebP, or was flagged `needs_server_conversion`, it converts it: `sharp(input).rotate().resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true }).webp({ quality: 80 })`. It writes both sizes back to R2, deletes the original, and updates the row.
-- Uploads for that flow go to `incoming/{uuid}`. A daily Supabase cron (or R2 lifecycle rule) deletes anything in `incoming/` older than 24 h.
+- `POST /api/images/verify`: fetches the uploaded object from storage and checks with `sharp` that it really is WebP within size limits.
+- If it isn't WebP, or was flagged `needs_server_conversion`, it converts it: `sharp(input).rotate().resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true }).webp({ quality: 80 })`. It writes both sizes back to the bucket, deletes the original, and updates the row.
+- Uploads for that flow go to the `listing-incoming` bucket. A daily Vercel cron (`/api/cron/cleanup-incoming`) deletes anything older than 24 h.
 
 **Schema additions**
 ```sql
@@ -231,9 +231,9 @@ alter table listing_images
 - OG/WhatsApp share image: the `large` cover photo (WebP works in WhatsApp previews).
 - Optional watermark: a small Rayanco logo drawn on the canvas before encoding, controlled by a setting.
 
-**Existing site images:** the 70+ images in `/assets/images/**` are already `.webp`. Keep them at the same paths (SEO). When copying them to R2, re-run them through `sharp` only to add a thumbnail; do not rename the originals.
+**Existing site images:** the 70+ images in `/assets/images/**` are already `.webp`. Keep them at the same paths (SEO). When copying them to Supabase Storage, re-run them through `sharp` only to add a thumbnail; do not rename the originals.
 
-**Acceptance test:** upload a 6–8 MB iPhone HEIC photo and a 5 MB PNG from a phone. Both must end up in R2 as `.webp` (large ≤ 300 KB plus thumb), with no EXIF GPS data, correct orientation and correct dimensions in the DB, and display sharp on the listing page.
+**Acceptance test:** upload a 6–8 MB iPhone HEIC photo and a 5 MB PNG from a phone. Both must end up in Supabase Storage as `.webp` (large ≤ 300 KB plus thumb), with no EXIF GPS data, correct orientation and correct dimensions in the DB, and display sharp on the listing page.
 
 ## 9. SEO implementation details
 
@@ -262,7 +262,7 @@ alter table listing_images
 3. Static pages with preserved content: Home, About, Products, Non-ferrous, Metal scrap, Demolition, Contact, Sell your equipment.
 4. Redirects in `next.config.js`, canonical / metadata / JSON-LD helpers, sitemap, robots.
 5. Marketplace public pages: index, category, listing.
-6. Admin: auth, listing form with R2 upload, approval, status changes, enquiries.
+6. Admin: auth, listing form with Supabase Storage upload, approval, status changes, enquiries.
 7. QA: test every old URL (expect 301 → 200); run Lighthouse on mobile; check that no private field appears in any public response.
 
 ## 12. Working rules for Claude
