@@ -52,7 +52,7 @@ export function revalidateListingCaches(...slugs: string[]): void {
   for (const tag of listingTags(slugs)) revalidateTag(tag, { expire: 0 });
 }
 
-/** R2 keys for a listing photo (CLAUDE.md §8a). */
+/** Storage keys (in the listing-media bucket) for a listing photo (CLAUDE.md §8a). */
 export function listingImageKeys(listingId: string, uuid: string) {
   return {
     large: `listings/${listingId}/${uuid}.webp`,

@@ -1,8 +1,9 @@
 import { publicEnv } from "@/lib/env";
 
-/** Public URL of an object in the R2 media bucket. */
+/** Public URL of an object in the Supabase Storage `listing-media` bucket. */
 export function mediaUrl(key: string): string {
-  return `${publicEnv.NEXT_PUBLIC_MEDIA_URL.replace(/\/+$/, "")}/${key.replace(/^\/+/, "")}`;
+  const base = publicEnv.NEXT_PUBLIC_SUPABASE_URL.replace(/\/+$/, "");
+  return `${base}/storage/v1/object/public/listing-media/${key.replace(/^\/+/, "")}`;
 }
 
 type AltSource = {

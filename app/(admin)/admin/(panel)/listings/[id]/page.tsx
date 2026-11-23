@@ -33,7 +33,7 @@ export default async function EditListingPage({ params }: { params: Promise<{ id
     supabase.from("categories").select("id, name_en").order("sort").order("name_en"),
     supabase
       .from("listing_images")
-      .select("id, r2_key, thumb_key, width, height, bytes")
+      .select("id, storage_key, thumb_key, width, height, bytes")
       .eq("listing_id", id)
       .order("sort_order"),
     isOwner

@@ -30,10 +30,10 @@ const LISTING_COLUMNS =
 const CARD_COLUMNS =
   "id, ref_code, slug, title_en, title_ar, make, model, year, condition, location, price_sar, price_on_request, status";
 
-const IMAGE_COLUMNS = "r2_key, thumb_key, width, height, alt_text, sort_order";
+const IMAGE_COLUMNS = "storage_key, thumb_key, width, height, alt_text, sort_order";
 
 export type PublicImage = {
-  r2_key: string;
+  storage_key: string;
   thumb_key: string | null;
   width: number | null;
   height: number | null;

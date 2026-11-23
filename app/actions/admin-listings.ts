@@ -17,7 +17,7 @@ import {
 } from "@/lib/admin/listingSchema";
 import { getSession, requireOwner, requireUser } from "@/lib/auth";
 import { listingAlt } from "@/lib/listings/media";
-import { deleteObjects, r2Configured } from "@/lib/r2";
+import { deleteObjects, MEDIA_BUCKET } from "@/lib/storage";
 import type { ListingStatus } from "@/lib/supabase/models";
 
 /**
@@ -190,7 +190,7 @@ export async function deleteListing(id: string): Promise<ActionResult> {
 
   const { data: images } = await session.supabase
     .from("listing_images")
-    .select("r2_key, thumb_key")
+    .select("storage_key, thumb_key")
     .eq("listing_id", id);
 
   const { error } = await session.supabase.from("listings").delete().eq("id", id);
@@ -198,9 +198,9 @@ export async function deleteListing(id: string): Promise<ActionResult> {
     console.error("deleteListing failed", error.code, error.message);
     return { ok: false, error: "Couldn't delete the listing." };
   }
-  if (images?.length && r2Configured()) {
-    await deleteObjects(images.flatMap((i) => [i.r2_key, i.thumb_key])).catch((e) =>
-      console.error("deleteListing: R2 cleanup failed", e),
+  if (images?.length) {
+    await deleteObjects(MEDIA_BUCKET, images.flatMap((i) => [i.storage_key, i.thumb_key])).catch((e) =>
+      console.error("deleteListing: storage cleanup failed", e),
     );
   }
   expireListingCaches(listing.slug);
@@ -246,12 +246,12 @@ export async function deleteListingImage(listingId: string, imageId: string): Pr
     .delete()
     .eq("id", imageId)
     .eq("listing_id", listingId)
-    .select("r2_key, thumb_key")
+    .select("storage_key, thumb_key")
     .maybeSingle();
   if (error || !data) return { ok: false, error: "Couldn't delete the photo." };
-  if (r2Configured()) {
-    await deleteObjects([data.r2_key, data.thumb_key]).catch((e) => console.error("deleteListingImage: R2 cleanup failed", e));
-  }
+  await deleteObjects(MEDIA_BUCKET, [data.storage_key, data.thumb_key]).catch((e) =>
+    console.error("deleteListingImage: storage cleanup failed", e),
+  );
   if (isPublicStatus(listing.status)) expireListingCaches(listing.slug);
   return { ok: true };
 }

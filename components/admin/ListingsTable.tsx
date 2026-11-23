@@ -16,7 +16,7 @@ export type ListingRow = {
   updated_at: string;
   view_count: number;
   categories: { name_en: string } | null;
-  listing_images: { thumb_key: string | null; r2_key: string }[];
+  listing_images: { thumb_key: string | null; storage_key: string }[];
 };
 
 function Thumb({ row, size }: { row: ListingRow; size: string }) {
@@ -24,7 +24,7 @@ function Thumb({ row, size }: { row: ListingRow; size: string }) {
   return (
     <span className={`relative block shrink-0 overflow-hidden rounded-lg bg-steel-100 ${size}`}>
       {cover ? (
-        <Image src={mediaUrl(cover.thumb_key ?? cover.r2_key)} alt="" fill sizes="64px" className="object-cover" unoptimized />
+        <Image src={mediaUrl(cover.thumb_key ?? cover.storage_key)} alt="" fill sizes="64px" className="object-cover" unoptimized />
       ) : (
         <span className="grid size-full place-items-center text-steel-300">
           <IconCamera className="size-5" />

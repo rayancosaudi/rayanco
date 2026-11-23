@@ -63,8 +63,8 @@ function metaDescription(locale: Locale, l: ListingDetail): string {
 
 function galleryImages(l: ListingDetail): GalleryImage[] {
   return l.images.map((img) => ({
-    src: mediaUrl(img.r2_key),
-    thumb: mediaUrl(img.thumb_key ?? img.r2_key),
+    src: mediaUrl(img.storage_key),
+    thumb: mediaUrl(img.thumb_key ?? img.storage_key),
     width: img.width ?? 1600,
     height: img.height ?? 1200,
     alt: img.alt_text || listingAlt(l),
@@ -86,7 +86,7 @@ export async function listingMetadata(locale: Locale, category: string, slug: st
     description: metaDescription(locale, l),
     path: listingPath(l.category.slug, l.slug),
     image: cover
-      ? { url: mediaUrl(cover.r2_key), width: cover.width ?? 1600, height: cover.height ?? 1200, alt: cover.alt_text || listingAlt(l) }
+      ? { url: mediaUrl(cover.storage_key), width: cover.width ?? 1600, height: cover.height ?? 1200, alt: cover.alt_text || listingAlt(l) }
       : undefined,
   });
 }

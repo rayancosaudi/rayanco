@@ -28,7 +28,7 @@ export default async function DashboardPage() {
 
   let viewedQuery = supabase
     .from("listings")
-    .select("id, ref_code, title_en, view_count, status, listing_images(thumb_key, r2_key, sort_order)")
+    .select("id, ref_code, title_en, view_count, status, listing_images(thumb_key, storage_key, sort_order)")
     .in("status", ["available", "reserved", "sold"])
     .order("view_count", { ascending: false })
     .order("sort_order", { referencedTable: "listing_images", ascending: true })
@@ -233,7 +233,7 @@ type TopViewedListing = {
   title_en: string;
   view_count: number;
   status: ListingStatus;
-  listing_images: { thumb_key: string | null; r2_key: string }[];
+  listing_images: { thumb_key: string | null; storage_key: string }[];
 };
 
 function TopViewed({ listings, className = "" }: { listings: TopViewedListing[]; className?: string }) {
@@ -254,7 +254,7 @@ function TopViewed({ listings, className = "" }: { listings: TopViewedListing[];
                 <Link href={`/admin/listings/${l.id}`} className="flex items-center gap-3 px-6 py-3 transition-colors hover:bg-steel-50/70">
                   <span className="relative size-11 shrink-0 overflow-hidden rounded-lg bg-steel-100">
                     {cover ? (
-                      <Image src={mediaUrl(cover.thumb_key ?? cover.r2_key)} alt="" fill sizes="44px" className="object-cover" unoptimized />
+                      <Image src={mediaUrl(cover.thumb_key ?? cover.storage_key)} alt="" fill sizes="44px" className="object-cover" unoptimized />
                     ) : (
                       <span className="grid size-full place-items-center text-steel-300">
                         <IconCamera className="size-5" />

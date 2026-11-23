@@ -9,7 +9,7 @@ import {
 } from "@/lib/admin/access";
 import { getSession } from "@/lib/auth";
 import { listingAlt } from "@/lib/listings/media";
-import { deleteObjects, getObjectBytes, putObject, R2NotConfiguredError } from "@/lib/r2";
+import { deleteObjects, getObjectBytes, INCOMING_BUCKET, MEDIA_BUCKET, putObject } from "@/lib/storage";
 
 /**
  * POST /api/images/verify — server safety net (CLAUDE.md §8a step 3), then saves the
@@ -68,32 +68,28 @@ export async function POST(request: Request) {
 
   try {
     if (mode === "fallback") {
-      const incomingKey = `incoming/${uuid}`;
-      const original = await getObjectBytes(incomingKey);
+      const original = await getObjectBytes(INCOMING_BUCKET, uuid);
       const [l, t] = await Promise.all([encode(original, LARGE_EDGE, 80), encode(original, THUMB_EDGE, 75)]);
-      await Promise.all([putObject(keys.large, l.data, "image/webp"), putObject(keys.thumb, t.data, "image/webp")]);
-      await deleteObjects([incomingKey]);
+      await Promise.all([putObject(keys.large, l.data), putObject(keys.thumb, t.data)]);
+      await deleteObjects(INCOMING_BUCKET, [uuid]);
       large = { width: l.width, height: l.height, bytes: l.data.byteLength };
     } else {
-      const [largeBytes, thumbBytes] = await Promise.all([getObjectBytes(keys.large), getObjectBytes(keys.thumb)]);
+      const [largeBytes, thumbBytes] = await Promise.all([getObjectBytes(MEDIA_BUCKET, keys.large), getObjectBytes(MEDIA_BUCKET, keys.thumb)]);
       const largeCheck = await isCleanWebp(largeBytes, LARGE_EDGE, MAX_LARGE_BYTES);
       if (largeCheck.ok) {
         large = { width: largeCheck.width, height: largeCheck.height, bytes: largeBytes.byteLength };
       } else {
         const l = await encode(largeBytes, LARGE_EDGE, 80);
-        await putObject(keys.large, l.data, "image/webp");
+        await putObject(keys.large, l.data);
         large = { width: l.width, height: l.height, bytes: l.data.byteLength };
       }
       const thumbCheck = await isCleanWebp(thumbBytes, THUMB_EDGE, MAX_LARGE_BYTES);
       if (!thumbCheck.ok) {
         const t = await encode(thumbBytes, THUMB_EDGE, 75);
-        await putObject(keys.thumb, t.data, "image/webp");
+        await putObject(keys.thumb, t.data);
       }
     }
   } catch (e) {
-    if (e instanceof R2NotConfiguredError) {
-      return NextResponse.json({ error: "Photo storage isn't set up yet (R2 keys missing)." }, { status: 503 });
-    }
     console.error("images/verify failed", e);
     return NextResponse.json({ error: "That file isn't a usable photo." }, { status: 422 });
   }
@@ -107,7 +103,7 @@ export async function POST(request: Request) {
     .from("listing_images")
     .insert({
       listing_id: listing.id,
-      r2_key: keys.large,
+      storage_key: keys.large,
       thumb_key: keys.thumb,
       width: large.width,
       height: large.height,
@@ -116,11 +112,11 @@ export async function POST(request: Request) {
       alt_text: listingAlt(listing),
       sort_order: count ?? 0,
     })
-    .select("id, r2_key, thumb_key, width, height, bytes, sort_order")
+    .select("id, storage_key, thumb_key, width, height, bytes, sort_order")
     .single();
   if (error || !row) {
     console.error("images/verify insert failed", error?.code, error?.message);
-    await deleteObjects([keys.large, keys.thumb]).catch(() => {});
+    await deleteObjects(MEDIA_BUCKET, [keys.large, keys.thumb]).catch(() => {});
     return NextResponse.json({ error: "Couldn't save the photo." }, { status: 500 });
   }
 

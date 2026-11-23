@@ -3,13 +3,14 @@
 import Image from "next/image";
 import { useRef, useState, useTransition } from "react";
 import { deleteListingImage, reorderListingImages } from "@/app/actions/admin-listings";
+import { createClient } from "@/lib/supabase/client";
 import { ACCEPT_ATTR, formatBytes, ImageInputError, processImage, validateImageFile } from "@/lib/images/processImage";
 import { mediaUrl } from "@/lib/listings/media";
 import { IconCamera } from "./icons";
 
 export type UploadedImage = {
   id: string;
-  r2_key: string;
+  storage_key: string;
   thumb_key: string | null;
   width: number | null;
   height: number | null;
@@ -36,14 +37,16 @@ async function postJson<T>(url: string, body: unknown): Promise<T> {
   return json;
 }
 
-async function putToR2(url: string, blob: Blob, contentType: string) {
-  const res = await fetch(url, { method: "PUT", headers: { "content-type": contentType }, body: blob });
-  if (!res.ok) throw new Error(`Upload failed (${res.status})`);
+type SignedUpload = { kind: "large" | "thumb" | "incoming"; bucket: string; path: string; token: string };
+type UploadUrls = { uuid: string; uploads: SignedUpload[] };
+
+/** Direct browser → Supabase Storage upload using a one-shot token from /api/upload-url. */
+async function putToStorage(u: SignedUpload, blob: Blob, contentType: string) {
+  const { error } = await createClient().storage.from(u.bucket).uploadToSignedUrl(u.path, u.token, blob, { contentType });
+  if (error) throw new Error(`Upload failed (${error.message})`);
 }
 
-type UploadUrls = { uuid: string; uploads: { kind: "large" | "thumb" | "incoming"; key: string; url: string }[] };
-
-/** Compress → upload to R2 → verify on the server → returns the saved row. */
+/** Compress → upload to storage → verify on the server → returns the saved row. */
 async function uploadOne(listingId: string, file: File, onStage: (s: Stage, after?: number) => void): Promise<UploadedImage> {
   onStage("compressing");
   const processed = await processImage(file);
@@ -58,10 +61,10 @@ async function uploadOne(listingId: string, file: File, onStage: (s: Stage, afte
       largeBytes: processed.large.blob.size,
       thumbBytes: processed.thumb.blob.size,
     });
-    const byKind = Object.fromEntries(urls.uploads.map((u) => [u.kind, u.url]));
+    const byKind = Object.fromEntries(urls.uploads.map((u) => [u.kind, u]));
     await Promise.all([
-      putToR2(byKind.large, processed.large.blob, "image/webp"),
-      putToR2(byKind.thumb, processed.thumb.blob, "image/webp"),
+      putToStorage(byKind.large, processed.large.blob, "image/webp"),
+      putToStorage(byKind.thumb, processed.thumb.blob, "image/webp"),
     ]);
   } else {
     urls = await postJson<UploadUrls>("/api/upload-url", {
@@ -70,7 +73,7 @@ async function uploadOne(listingId: string, file: File, onStage: (s: Stage, afte
       contentType: "image/jpeg",
       bytes: processed.jpeg.blob.size,
     });
-    await putToR2(urls.uploads[0].url, processed.jpeg.blob, "image/jpeg");
+    await putToStorage(urls.uploads[0], processed.jpeg.blob, "image/jpeg");
   }
 
   onStage("verifying");
@@ -253,7 +256,7 @@ export function ImageUploader({
             <li key={img.id} className="overflow-hidden rounded-xl border border-steel-100 bg-white">
               <div className="relative aspect-[4/3] bg-steel-100">
                 <Image
-                  src={mediaUrl(img.thumb_key ?? img.r2_key)}
+                  src={mediaUrl(img.thumb_key ?? img.storage_key)}
                   alt=""
                   fill
                   sizes="(min-width: 640px) 30vw, 45vw"

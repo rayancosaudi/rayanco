@@ -31,7 +31,7 @@ export default async function AdminListingsPage({
   let query = session.supabase
     .from("listings")
     .select(
-      "id, ref_code, title_en, year, location, status, updated_at, view_count, categories(name_en), listing_images(thumb_key, r2_key, sort_order)",
+      "id, ref_code, title_en, year, location, status, updated_at, view_count, categories(name_en), listing_images(thumb_key, storage_key, sort_order)",
     )
     .order("updated_at", { ascending: false })
     .order("sort_order", { referencedTable: "listing_images", ascending: true })

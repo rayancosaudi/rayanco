@@ -1,8 +1,8 @@
 import type { NextConfig } from "next";
 import { legacyRedirects } from "./lib/legacy-redirects";
 
-// R2 media bucket (custom domain). Listing photos are served from here via next/image.
-const mediaUrl = new URL(process.env.NEXT_PUBLIC_MEDIA_URL || "https://media.rayanco.com");
+// Supabase Storage public bucket. Listing photos are served from here via next/image.
+const supabaseUrl = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co");
 
 const nextConfig: NextConfig = {
   cacheComponents: true,
@@ -10,9 +10,9 @@ const nextConfig: NextConfig = {
     formats: ["image/avif", "image/webp"],
     remotePatterns: [
       {
-        protocol: mediaUrl.protocol.replace(":", "") as "http" | "https",
-        hostname: mediaUrl.hostname,
-        pathname: "/**",
+        protocol: supabaseUrl.protocol.replace(":", "") as "http" | "https",
+        hostname: supabaseUrl.hostname,
+        pathname: "/storage/v1/object/public/**",
       },
     ],
   },
